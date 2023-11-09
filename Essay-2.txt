@@ -1,0 +1,84 @@
+1. Please create dimension tables dim_user , dim_post , and dim_date to store normalized data from the raw tables
+
+-- dim_user
+CREATE TABLE dim_user (
+    user_id INT PRIMARY KEY,
+    user_name VARCHAR(255),
+    country VARCHAR(255)
+);
+
+-- dim_post
+CREATE TABLE dim_post (
+    post_id INT PRIMARY KEY,
+    post_text TEXT,
+    post_date DATE,
+    user_id INT
+);
+
+-- dim_date
+CREATE TABLE dim_date (
+    date_id INT PRIMARY KEY,
+    full_date DATE
+);
+
+
+2. Populate the dimension tables by inserting data from the related raw tables
+
+-- Populate dim_user
+INSERT INTO dim_user (user_id, user_name, country)
+SELECT user_id, user_name, country FROM raw_users;
+
+-- Populate dim_post
+INSERT INTO dim_post (post_id, post_text, post_date, user_id)
+SELECT post_id, post_text, post_date, user_id FROM raw_posts;
+
+-- Populate dim_date
+INSERT INTO dim_date (date_id, full_date)
+SELECT ROW_NUMBER() OVER () as date_id, post_date FROM raw_posts;
+
+
+3. Create a fact table called fact_post_performance to store metrics like post views and
+likes over time
+
+-- fact_post_performance
+CREATE TABLE fact_post_performance (
+    post_id INT,
+    date_id INT,
+    views INT,
+    likes INT
+);
+
+
+4. Populate the fact table by joining and aggregating data from the raw tables
+
+-- Populate fact_post_performance
+INSERT INTO fact_post_performance (post_id, date_id, views, likes)
+SELECT rp.post_id, dd.date_id, COUNT(*) as views, COUNT(rl.post_id) as likes
+FROM raw_posts rp
+JOIN dim_date dd ON rp.post_date = dd.full_date
+LEFT JOIN raw_likes rl ON rp.post_id = rl.post_id
+GROUP BY rp.post_id, dd.date_id;
+
+
+5. Please create a fact_daily_posts table to capture the number of posts per user per
+day
+
+-- fact_daily_posts
+CREATE TABLE fact_daily_posts (
+    user_id INT,
+    date_id INT,
+    posts_count INT
+);
+
+
+6. Also populate the fact table by joining and aggregating data from the raw tables
+
+-- Populate fact_daily_posts
+INSERT INTO fact_daily_posts (user_id, date_id, posts_count)
+SELECT user_id, dd.date_id, COUNT(*) as posts_count
+FROM raw_posts rp
+JOIN dim_date dd ON rp.post_date = dd.full_date
+GROUP BY user_id, dd.date_id;
+
+
+6. Also populate the fact table by joining and aggregating data from the raw tables
